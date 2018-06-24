@@ -100,12 +100,12 @@ TCB *get_ready_task()
 	int i;
 	disable_interrput();
 	for (i = 0; i < PRIO_LEVELS; i++) {
-		printint(i);
 		if (!list_empty(&ready_list[i])) {
 			next = list_entry(ready_list[i].next, TCB, ready);
 			break;
 		}
 	}
+	println("");print("Sched to \'");print(next->name);println("\'.");
 	enable_interrupt();
 	return next;
 }
@@ -156,6 +156,8 @@ TCB *create_task(task_func_ptr func, uint8_t *stack, uint32_t priority, const ch
 void sleep(uint32_t time)
 {
 	disable_interrput();
+	
+	print("Task named \'");print(current->name);println("\' start sleep for ");printint(time);println(" schedules.");
 	
 	list_add_tail(&current->sleep, &sleep_list);
 	current->state = SLEEP;
@@ -221,7 +223,10 @@ void disable_interrput()
 	intstack[inttop++] = tmp;
 	asm volatile("cpsid    i\n\t");
 }
-
+void printtaskname()
+{
+	print(current->name);
+}
 extern "C" {
 __attribute__((naked)) void switch_context_c()
 {

@@ -19,6 +19,7 @@ OBJS = src/main.o \
 	src/system.o \
 	src/startup.o \
 	src/init.o \
+	src/sem.o \
 	$(LIBSRC)/stm32f10x_gpio.o \
     $(LIBSRC)/stm32f10x_usart.o \
     $(LIBSRC)/stm32f10x_dma.o \

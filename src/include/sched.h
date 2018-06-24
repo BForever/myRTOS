@@ -92,6 +92,8 @@ void del_process(void);
 
 void printstack();
 
+void printtaskname();
+
 void TIM2_IRQHandler(void);
 void SVC_Handler(void);
 
