@@ -183,25 +183,33 @@ void println(const char *string)
 {
     uint16_t da = 0xa;
     uint16_t dd = 0xd;
-    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+    
     while (*string) {
+    	disable_interrput();
+	    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
         USART_SendData(USART1, (uint8_t) (*string));
+	    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+        enable_interrupt();
         string++;
-        while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
     }
+	disable_interrput();
+	while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
     USART_SendData(USART1, da);
     while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
     USART_SendData(USART1, dd);
-    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+	while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+	enable_interrupt();
 }
 
 void print(const char *string)
 {
-    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
     while (*string) {
+    	disable_interrput();
+	    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
         USART_SendData(USART1, (uint8_t) (*string));
+	    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+        enable_interrupt();
         string++;
-        while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
     }
 }
 

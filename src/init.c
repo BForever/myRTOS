@@ -64,8 +64,8 @@ void TIM_Configuration(void)
 	
 	TIM_DeInit(TIM2);
 	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitstruct;
-	TIM_TimeBaseInitstruct.TIM_Prescaler = 15400 - 1;//0.2 ms
-	TIM_TimeBaseInitstruct.TIM_Period = 5000 - 1;//0.2ms * 5000 = 1 s
+	TIM_TimeBaseInitstruct.TIM_Prescaler = 15400 - 1;//0.2 ms :origin:15400
+	TIM_TimeBaseInitstruct.TIM_Period = 500 - 1;//0.2ms * 5000 = 1 s  :origin:5000
 	TIM_TimeBaseInitstruct.TIM_ClockDivision = TIM_CKD_DIV1;
 	TIM_TimeBaseInitstruct.TIM_CounterMode = TIM_CounterMode_Up;
 	TIM_TimeBaseInitstruct.TIM_RepetitionCounter = 0;

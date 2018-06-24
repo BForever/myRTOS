@@ -7,6 +7,7 @@
 
 #include <stm32f10x.h>
 #include "list.h"
+#include "init.h"
 
 #define STACK_SIZE 2048
 #define CONTEXT_SIZE 128 //TODO:don't known yet
@@ -96,7 +97,8 @@ void SVC_Handler(void);
 
 void first_schedule_c();
 
-void set_ready(TCB* task);
+void set_ready_tail(TCB *task);
+void set_ready_head(TCB *task);
 void set_run(TCB* task);
 
 TCB *get_ready_task();

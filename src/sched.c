@@ -21,21 +21,31 @@ TCB *current = NULL;
 
 void idle(void *arg)
 {
-	println("idle start");
+	println("first schedule done, turn to user program...");
+	// lower priprity of idle.
+	current->priority = PRIO_LEVELS - 1;
 	enable_interrupt();
-//	printstack();
+	// request schedule
+	schedule();
 	
 	while (1) {
-		disable_interrput();
-		println((char*)arg);
-		enable_interrupt();
+		println((char *) arg);
 	}
 }
 
 char idle_stack[STACK_SIZE];
-char idles[]="idles";
+char idles[] = "idle";
+
 void os_init()
 {
+	RCC_Configuration();
+	GPIO_Configuration();
+	USART1_configuration();// now println is available
+	TIM_Configuration();
+	NVIC_Configuration();
+	disable_interrput();
+	
+	println("Welcome to FRTOS!");
 	int i;
 	// Initialize all lists
 	INIT_LIST_HEAD(&shed_list);
@@ -45,21 +55,29 @@ void os_init()
 	INIT_LIST_HEAD(&sleep_list);
 	
 	// OS_Start will load the current task to work, you can replace it
-	current = create_task(idle, (uint8_t *) idle_stack, PRIO_LEVELS - 1, "idle", (void*)idles);
-	set_ready(current);
+	current = create_task(idle, (uint8_t *) idle_stack, 0, "idle", (void *) idles);
+	set_ready_tail(current);
 	
-	println("os inited");
 }
 
-void set_ready(TCB* task)
+void set_ready_tail(TCB *task)
 {
 	disable_interrput();
-	list_add_tail(&task->ready,&ready_list[task->priority]);
+	list_add_tail(&task->ready, &ready_list[task->priority]);
 	task->state = READY;
 	enable_interrupt();
 }
 
-void set_run(TCB* task)
+void set_ready_head(TCB *task)
+{
+	disable_interrput();
+	list_add(&task->ready, &ready_list[task->priority]);
+	task->state = READY;
+	enable_interrupt();
+}
+
+
+void set_run(TCB *task)
 {
 	disable_interrput();
 	list_del_init(&task->ready);
@@ -72,6 +90,8 @@ void os_start()
 {
 	current = get_ready_task();
 	first_schedule_c();
+	println("FRTOS terminated.");
+	while (1);
 }
 
 TCB *get_ready_task()
@@ -119,16 +139,16 @@ TCB *create_task(task_func_ptr func, uint8_t *stack, uint32_t priority, const ch
 	hf->psr = 0x21000000; //default PSR value
 	
 	sw_stack_frame_t *sf = (sw_stack_frame_t *) (task->sp - sizeof(hw_stack_frame_t) - sizeof(sw_stack_frame_t));
-	sf->r4=0x44444444;
-	sf->r5=0x55555555;
-	sf->r6=0x66666666;
-	sf->r7=0x77777777;
-	sf->r8=0x88888888;
-	sf->r9=0x99999999;
-	sf->r10=0x10101010;
-	sf->r11=0x11011011;
+	sf->r4 = 0x44444444;
+	sf->r5 = 0x55555555;
+	sf->r6 = 0x66666666;
+	sf->r7 = 0x77777777;
+	sf->r8 = 0x88888888;
+	sf->r9 = 0x99999999;
+	sf->r10 = 0x10101010;
+	sf->r11 = 0x11011011;
 	
-	task->sp = (uint8_t*) sf;
+	task->sp = (uint8_t *) sf;
 	
 	return task;
 }
@@ -141,16 +161,17 @@ void sleep(uint32_t time)
 	current->state = SLEEP;
 	current->sleep_time = time;
 	
-	schedule();
-	
 	enable_interrupt();
+	
+	schedule();
 }
+
 
 void update_sleep_threads()
 {
 	TCB *task;
 	struct list_head *pos, *n;
-	disable_interrput();
+	
 	// Search the sleep list
 	list_for_each_safe(pos, n, &sleep_list) {
 		// Get one sleep task
@@ -160,10 +181,10 @@ void update_sleep_threads()
 		
 		if (task->sleep_time == 0) {
 			list_del_init(&task->sleep);
-			set_ready(task);
+			set_ready_tail(task);
 		}
 	}
-	enable_interrupt();
+	
 }
 
 
@@ -182,10 +203,11 @@ void del_process(void)
 
 static int32_t intstack[20];
 static int32_t inttop = 0;
+
 void enable_interrupt()
 {
 	int32_t tmp = intstack[--inttop];
-	if(tmp==0)
+	if (tmp == 0)
 		asm volatile("cpsie    i\n\t");
 }
 
@@ -193,18 +215,20 @@ void disable_interrput()
 {
 	int32_t tmp;
 	asm volatile(
-		"mrs    %0, PRIMASK\n\t"
-        :"=r"(tmp)
-		);
-	intstack[inttop++]=tmp;
+	"mrs    %0, PRIMASK\n\t"
+	:"=r"(tmp)
+	);
+	intstack[inttop++] = tmp;
 	asm volatile("cpsid    i\n\t");
 }
 
 extern "C" {
 __attribute__((naked)) void switch_context_c()
 {
-	TCB* prev = current;
-	set_ready(current);
+	update_sleep_threads();
+	TCB *prev = current;
+	if (prev->state != SLEEP)
+		set_ready_tail(prev);
 	
 	/* Store sp */
 	uint32_t tmp;
@@ -216,7 +240,7 @@ __attribute__((naked)) void switch_context_c()
 	:"r"(prev)
 	);
 	
-	TCB* next = get_ready_task();
+	TCB *next = get_ready_task();
 	set_run(next);
 	current = next;
 	
@@ -229,6 +253,7 @@ __attribute__((naked)) void switch_context_c()
 	:"r"(next)
 	);
 	
+	end:
 	/* Return from exception */
 	asm volatile("mov   lr, #0xfffffffd");
 	asm volatile("bx    lr");
@@ -259,8 +284,8 @@ __attribute__((naked)) void first_schedule_c()
 void schedule()
 {
 	asm volatile(
-		"svc    0\n\t"
-		);
+	"svc    0\n\t"
+	);
 }
 
 //inline void invokePendSV()
