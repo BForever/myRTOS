@@ -98,7 +98,6 @@ TCB *get_ready_task()
 {
 	TCB *next = (TCB *) 0;
 	int i;
-	disable_interrput();
 	for (i = 0; i < PRIO_LEVELS; i++) {
 		if (!list_empty(&ready_list[i])) {
 			next = list_entry(ready_list[i].next, TCB, ready);
@@ -106,7 +105,6 @@ TCB *get_ready_task()
 		}
 	}
 	println("");print("Sched to \'");print(next->name);println("\'.");
-	enable_interrupt();
 	return next;
 }
 
@@ -248,6 +246,8 @@ __attribute__((naked)) void switch_context_c()
 	TCB *next = get_ready_task();
 	set_run(next);
 	current = next;
+	TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
+//	TIM_SetCounter(TIM2,0);
 	
 	/* Load sp */
 	asm volatile(
@@ -300,7 +300,6 @@ void schedule()
 
 __attribute__((naked)) void TIM2_IRQHandler()
 {
-	TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
 	switch_context_c();
 }
 __attribute__((naked)) void SVC_Handler()
